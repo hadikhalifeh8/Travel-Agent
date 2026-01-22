@@ -17,3 +17,4 @@ test.py
 test_gemini.py
 main.py
 config/
+.env

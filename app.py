@@ -1,19 +1,47 @@
 import streamlit as st
 import json
+import os
+import sys
 
-# CONFIG
-from config.settings import SERPAPI_KEY
+from dotenv import load_dotenv
 
+# --------------------------------------------------
+# LOAD ENV VARIABLES
+# --------------------------------------------------
+load_dotenv()
+
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if not SERPAPI_KEY or not GOOGLE_API_KEY:
+    st.error("❌ API Keys are missing. Please check your .env file or Streamlit Secrets.")
+    st.stop()
+
+# Gemini uses env variable
+os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
+
+# --------------------------------------------------
+# ENSURE ROOT PATH (important for deployment)
+# --------------------------------------------------
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT_DIR)
+
+# --------------------------------------------------
 # UI
+# --------------------------------------------------
 from ui.layout import setup_page
 from ui.inputs import travel_inputs
 from ui.sidebar import sidebar_preferences
 from ui.results import show_flights
 
+# --------------------------------------------------
 # SERVICES
+# --------------------------------------------------
 from services.flights import fetch_flights, extract_cheapest_flights
 
+# --------------------------------------------------
 # AGENTS
+# --------------------------------------------------
 from agents.researcher import build_researcher
 from agents.planner import build_planner
 from agents.hotel_finder import build_hotel_restaurant_finder
@@ -37,15 +65,11 @@ researcher = build_researcher(SERPAPI_KEY)
 planner = build_planner(SERPAPI_KEY)
 hotel_agent = build_hotel_restaurant_finder(SERPAPI_KEY)
 
-
 # --------------------------------------------------
-# 🚀 GENERATE TRAVEL PLAN (MAIN LOGIC)
+# 🚀 GENERATE TRAVEL PLAN
 # --------------------------------------------------
 if st.button("🚀 Generate Travel Plan"):
 
-    # -----------------------------
-    # FLIGHTS
-    # -----------------------------
     with st.spinner("✈️ Fetching best flight options..."):
         flight_data = fetch_flights(
             inputs["source"],
@@ -58,9 +82,6 @@ if st.button("🚀 Generate Travel Plan"):
 
     show_flights(cheapest_flights)
 
-    # -----------------------------
-    # RESEARCH AGENT
-    # -----------------------------
     with st.spinner("🔍 Researching attractions & activities..."):
         research_prompt = f"""
         Research the best attractions and activities in {inputs['destination']}
@@ -76,9 +97,6 @@ if st.button("🚀 Generate Travel Plan"):
 
         research_results = researcher.run(research_prompt, stream=False)
 
-    # -----------------------------
-    # HOTEL & RESTAURANT AGENT
-    # -----------------------------
     with st.spinner("🏨 Searching hotels & restaurants..."):
         hotel_prompt = f"""
         Find the best hotels and restaurants near popular attractions in
@@ -91,9 +109,6 @@ if st.button("🚀 Generate Travel Plan"):
 
         hotel_results = hotel_agent.run(hotel_prompt, stream=False)
 
-    # -----------------------------
-    # PLANNER AGENT
-    # -----------------------------
     with st.spinner("🗺️ Creating itinerary..."):
         planning_prompt = f"""
         Create a {inputs['num_days']}-day itinerary for a
@@ -118,9 +133,6 @@ if st.button("🚀 Generate Travel Plan"):
 
         itinerary = planner.run(planning_prompt, stream=False)
 
-    # -----------------------------
-    # DISPLAY RESULTS
-    # -----------------------------
     st.subheader("🏨 Hotels & Restaurants")
     st.write(hotel_results.content)
 
